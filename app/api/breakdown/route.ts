@@ -6,8 +6,12 @@ const client = new Anthropic();
 const SYSTEM = `Tu es un assistant spécialisé pour les personnes TDAH.
 Quand on te donne une tâche, décompose-la en 4 à 6 micro-étapes concrètes et immédiatement actionnables.
 Chaque étape doit être simple, spécifique, et faisable en moins de 15 minutes.
-Réponds UNIQUEMENT avec un objet JSON, sans markdown, sans explication :
-{"steps": ["étape 1", "étape 2", "étape 3", "étape 4"]}`;
+
+Si la tâche demandée est illégale, dangereuse, ou moralement inappropriée, refuse poliment sans fournir d'étapes.
+
+Réponds UNIQUEMENT avec un objet JSON, sans markdown, sans explication.
+En cas de refus : {"error": "message de refus poli"}
+Sinon : {"steps": ["étape 1", "étape 2", "étape 3", "étape 4"]}`;
 
 // In-memory sliding window rate limiter (V1 — resets on server restart)
 const ipRequests = new Map<string, number[]>();
@@ -67,11 +71,18 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Pas de réponse du modèle." }, { status: 500 });
     }
 
-    let parsed: { steps: string[] };
+    let parsed: { steps?: string[]; error?: string };
     try {
       parsed = JSON.parse(textBlock.text);
     } catch {
       return Response.json({ error: "Réponse du modèle invalide." }, { status: 500 });
+    }
+
+    if (parsed.error) {
+      return Response.json(
+        { error: "On est là pour t'aider à avancer sur des choses concrètes et positives — pas pour ça. 🙂" },
+        { status: 422 }
+      );
     }
 
     if (!Array.isArray(parsed.steps) || parsed.steps.length === 0) {
