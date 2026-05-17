@@ -112,7 +112,7 @@ export default function Home() {
                 autoCorrect="off"
                 autoCapitalize="sentences"
                 spellCheck={false}
-                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600"
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-base text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600"
               />
               <p className={`text-xs text-right tabular-nums ${task.length >= 500 ? "text-red-500" : "text-zinc-400"}`}>
                 {task.length} / 500
@@ -193,7 +193,7 @@ export default function Home() {
                 }
               }}
               placeholder="Une pensée, une idée..."
-              className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none"
+              className="flex-1 bg-transparent text-base text-left text-white placeholder-gray-600 focus:outline-none px-0"
             />
             <button
               type="button"
