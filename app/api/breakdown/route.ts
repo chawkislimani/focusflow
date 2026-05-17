@@ -3,34 +3,71 @@ import { NextRequest } from "next/server";
 
 const client = new Anthropic();
 
-const MAX_TASK_LENGTH = 500;
-const MIN_TASK_LENGTH = 3;
+function sanitizeInput(text: string): string {
+  return text.trim().replace(/[\x00-\x1F\x7F]/g, "");
+}
 
 const INJECTION_PATTERNS = [
-  /ignore\s+(tes|vos|les|your|all|previous)\s*(instructions?|règles?|directives?)/i,
-  /oublie\s+(toutes?\s*)?(tes|vos|les|mes)?\s*(instructions?|règles?|directives?)/i,
+  /ignore/i,
+  /oublie/i,
   /system\s*prompt/i,
-  /nouvelles?\s+instructions?/i,
-  /new\s+instructions?/i,
-  /act\s+as\b/i,
-  /agis\s+comme/i,
   /jailbreak/i,
+  /act\s+as/i,
   /tu\s+es\s+maintenant/i,
   /you\s+are\s+now/i,
+  /pretend/i,
+  /roleplay/i,
+  /###/,
+  /---system/i,
+  /<\|[^|]+\|>/i,
+  /\[inst\]/i,
 ];
 
-const FRIENDLY_REFUSAL =
-  "On est là pour t'aider à avancer sur des choses concrètes et positives — pas pour ça. 🙂";
+const ILLEGAL_KEYWORDS = [
+  /drogue/i,
+  /cocaine/i,
+  /hero[iï]ne/i,
+  /trafic/i,
+  /\barme\b/i,
+  /explosif/i,
+  /bombe/i,
+  /attentat/i,
+  /p[eé]dophilie/i,
+  /\bviol\b/i,
+  /meurtre/i,
+  /assassin/i,
+  /suicide/i,
+  /automutilation/i,
+  /\bhack\b/i,
+  /pirater/i,
+  /ransomware/i,
+  /phishing/i,
+  /blanchiment/i,
+  /fraude\s+fiscale/i,
+];
 
-const SYSTEM = `Tu es un assistant spécialisé pour les personnes TDAH.
-Quand on te donne une tâche, décompose-la en 4 à 6 micro-étapes concrètes et immédiatement actionnables.
-Chaque étape doit être simple, spécifique, et faisable en moins de 15 minutes.
+function validateInput(text: string): { valid: boolean; error?: string } {
+  if (text.length < 3) {
+    return { valid: false, error: "Décris ta tâche en quelques mots." };
+  }
+  if (text.length > 500) {
+    return { valid: false, error: "Limite ta tâche à 500 caractères." };
+  }
+  if (INJECTION_PATTERNS.some((p) => p.test(text))) {
+    return { valid: false, error: "Ce type de contenu n'est pas pris en charge." };
+  }
+  if (ILLEGAL_KEYWORDS.some((p) => p.test(text))) {
+    return { valid: false, error: "Ce type de contenu ne peut pas être traité par FocusFlow." };
+  }
+  return { valid: true };
+}
 
-Si la tâche demandée est illégale, dangereuse, ou moralement inappropriée, refuse poliment sans fournir d'étapes.
-
-Réponds UNIQUEMENT avec un objet JSON, sans markdown, sans explication.
-En cas de refus : {"error": "message de refus poli"}
-Sinon : {"steps": ["étape 1", "étape 2", "étape 3", "étape 4"]}`;
+const SYSTEM = `Tu es un assistant de productivité bienveillant pour personnes TDAH.
+Tu aides à décomposer des tâches du quotidien en micro-étapes actionnables.
+RÈGLES ABSOLUES :
+- Si la tâche décrit une activité illégale, dangereuse, violente, ou inappropriée, réponds UNIQUEMENT avec ce JSON : {"error": "Cette tâche ne peut pas être découpée par FocusFlow."}
+- Si la demande n'est pas une tâche concrète à accomplir, réponds UNIQUEMENT avec ce JSON : {"error": "Décris une tâche concrète à accomplir."}
+- Sinon, réponds UNIQUEMENT avec un JSON valide : {"steps": ["étape 1", "étape 2", ...]} avec 4 à 6 micro-étapes courtes et actionnables.`;
 
 // In-memory sliding window rate limiter (V1 — resets on server restart)
 const ipRequests = new Map<string, number[]>();
@@ -71,21 +108,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "La tâche est requise." }, { status: 400 });
   }
 
-  task = task.trim();
+  task = sanitizeInput(task);
 
-  if (task.length < MIN_TASK_LENGTH) {
-    return Response.json({ error: "La tâche est trop courte." }, { status: 400 });
-  }
-
-  if (task.length > MAX_TASK_LENGTH) {
-    return Response.json(
-      { error: `La tâche ne doit pas dépasser ${MAX_TASK_LENGTH} caractères.` },
-      { status: 400 }
-    );
-  }
-
-  if (INJECTION_PATTERNS.some((p) => p.test(task))) {
-    return Response.json({ error: FRIENDLY_REFUSAL }, { status: 400 });
+  const validation = validateInput(task);
+  if (!validation.valid) {
+    return Response.json({ error: validation.error }, { status: 400 });
   }
 
   try {
@@ -107,15 +134,20 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Pas de réponse du modèle." }, { status: 500 });
     }
 
+    const rawText = textBlock.text;
+    console.log('Raw response:', rawText);
+
+    const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
     let parsed: { steps?: string[]; error?: string };
     try {
-      parsed = JSON.parse(textBlock.text);
+      parsed = JSON.parse(cleaned);
     } catch {
       return Response.json({ error: "Réponse du modèle invalide." }, { status: 500 });
     }
 
     if (parsed.error) {
-      return Response.json({ error: FRIENDLY_REFUSAL }, { status: 422 });
+      return Response.json({ error: parsed.error }, { status: 400 });
     }
 
     if (!Array.isArray(parsed.steps) || parsed.steps.length === 0) {
