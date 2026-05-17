@@ -199,7 +199,7 @@ export default function Home() {
               type="button"
               onClick={addThought}
               disabled={thoughtInput.trim().length < 2}
-              className="shrink-0 text-sm text-gray-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="shrink-0 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center text-lg font-light disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
             >
               +
             </button>
