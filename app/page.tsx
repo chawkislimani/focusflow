@@ -49,13 +49,19 @@ export default function Home() {
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <textarea
-            value={task}
-            onChange={(e) => setTask(e.target.value)}
-            placeholder="Ex : Finir mon rapport de stage..."
-            rows={4}
-            className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600"
-          />
+          <div className="flex flex-col gap-1">
+            <textarea
+              value={task}
+              onChange={(e) => setTask(e.target.value.slice(0, 500))}
+              placeholder="Ex : Finir mon rapport de stage..."
+              rows={4}
+              maxLength={500}
+              className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600"
+            />
+            <p className={`text-xs text-right tabular-nums ${task.length >= 500 ? "text-red-500" : "text-zinc-400"}`}>
+              {task.length}/500
+            </p>
+          </div>
           <button
             type="submit"
             disabled={loading || !task.trim()}

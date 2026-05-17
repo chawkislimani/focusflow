@@ -3,6 +3,25 @@ import { NextRequest } from "next/server";
 
 const client = new Anthropic();
 
+const MAX_TASK_LENGTH = 500;
+const MIN_TASK_LENGTH = 3;
+
+const INJECTION_PATTERNS = [
+  /ignore\s+(tes|vos|les|your|all|previous)\s*(instructions?|règles?|directives?)/i,
+  /oublie\s+(toutes?\s*)?(tes|vos|les|mes)?\s*(instructions?|règles?|directives?)/i,
+  /system\s*prompt/i,
+  /nouvelles?\s+instructions?/i,
+  /new\s+instructions?/i,
+  /act\s+as\b/i,
+  /agis\s+comme/i,
+  /jailbreak/i,
+  /tu\s+es\s+maintenant/i,
+  /you\s+are\s+now/i,
+];
+
+const FRIENDLY_REFUSAL =
+  "On est là pour t'aider à avancer sur des choses concrètes et positives — pas pour ça. 🙂";
+
 const SYSTEM = `Tu es un assistant spécialisé pour les personnes TDAH.
 Quand on te donne une tâche, décompose-la en 4 à 6 micro-étapes concrètes et immédiatement actionnables.
 Chaque étape doit être simple, spécifique, et faisable en moins de 15 minutes.
@@ -48,8 +67,25 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Corps de requête invalide." }, { status: 400 });
   }
 
-  if (!task || typeof task !== "string" || !task.trim()) {
+  if (!task || typeof task !== "string") {
     return Response.json({ error: "La tâche est requise." }, { status: 400 });
+  }
+
+  task = task.trim();
+
+  if (task.length < MIN_TASK_LENGTH) {
+    return Response.json({ error: "La tâche est trop courte." }, { status: 400 });
+  }
+
+  if (task.length > MAX_TASK_LENGTH) {
+    return Response.json(
+      { error: `La tâche ne doit pas dépasser ${MAX_TASK_LENGTH} caractères.` },
+      { status: 400 }
+    );
+  }
+
+  if (INJECTION_PATTERNS.some((p) => p.test(task))) {
+    return Response.json({ error: FRIENDLY_REFUSAL }, { status: 400 });
   }
 
   try {
@@ -63,7 +99,7 @@ export async function POST(request: NextRequest) {
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages: [{ role: "user", content: task.trim() }],
+      messages: [{ role: "user", content: task }],
     });
 
     const textBlock = message.content.find((b) => b.type === "text");
@@ -79,10 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (parsed.error) {
-      return Response.json(
-        { error: "On est là pour t'aider à avancer sur des choses concrètes et positives — pas pour ça. 🙂" },
-        { status: 422 }
-      );
+      return Response.json({ error: FRIENDLY_REFUSAL }, { status: 422 });
     }
 
     if (!Array.isArray(parsed.steps) || parsed.steps.length === 0) {
