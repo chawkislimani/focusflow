@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Brand from "./Brand";
 import FocusState from "./FocusState";
 import Hero from "./Hero";
@@ -28,6 +28,24 @@ export type Thought = {
 
 export type AppState = "empty" | "loading" | "results";
 
+const LS_KEY = "focusflow_v1";
+
+function loadPersistedState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as {
+      task: string;
+      mood: string;
+      steps: MicroStep[];
+      checked: Record<number, boolean>;
+      thoughts: Thought[];
+    };
+  } catch {
+    return null;
+  }
+}
+
 function categorizeThought(text: string): string | null {
   const lower = text.toLowerCase();
   if (/\b(idée|peut-être|si on|et si)\b/.test(lower)) return "idée";
@@ -43,6 +61,31 @@ export default function FocusFlowApp() {
   const [steps, setSteps] = useState<MicroStep[]>([]);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [thoughts, setThoughts] = useState<Thought[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore persisted state on mount
+  useEffect(() => {
+    const saved = loadPersistedState();
+    if (saved) {
+      if (saved.task) setTask(saved.task);
+      if (saved.mood) setMood(saved.mood);
+      if (Array.isArray(saved.steps)) setSteps(saved.steps);
+      if (saved.checked) setChecked(saved.checked);
+      if (Array.isArray(saved.thoughts)) setThoughts(saved.thoughts);
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist state to localStorage whenever it changes (after hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ task, mood, steps, checked, thoughts }));
+    } catch {
+      // quota exceeded or private mode — silently ignore
+    }
+  }, [hydrated, task, mood, steps, checked, thoughts]);
 
   const appState: AppState =
     loading ? "loading" : steps.length > 0 ? "results" : "empty";
@@ -55,6 +98,7 @@ export default function FocusFlowApp() {
     setLoading(true);
     setSteps([]);
     setChecked({});
+    setError(null);
     try {
       const res = await fetch("/api/breakdown", {
         method: "POST",
@@ -63,12 +107,12 @@ export default function FocusFlowApp() {
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        console.error(data.error);
+        setError(data.error ?? "Une erreur est survenue.");
       } else {
         setSteps(data.steps);
       }
-    } catch (err) {
-      console.error("Impossible de contacter le serveur.", err);
+    } catch {
+      setError("Impossible de contacter le serveur. Vérifie ta connexion.");
     } finally {
       setLoading(false);
     }
@@ -113,6 +157,7 @@ export default function FocusFlowApp() {
     setSteps([]);
     setChecked({});
     setTask("");
+    setError(null);
   }
 
   return (
@@ -146,6 +191,20 @@ export default function FocusFlowApp() {
                 </span>
               </span>
             </div>
+            {error && (
+              <div className="mt-4 flex items-start gap-3 bg-[#FFF0EB] border border-[rgba(255,90,31,.3)] rounded-[14px] px-4 py-3">
+                <span className="text-accent text-[18px] leading-none shrink-0 mt-0.5">!</span>
+                <p className="font-sans text-[14px] leading-normal text-ink flex-1">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="font-mono text-[10px] text-ink-faint hover:text-ink transition-colors duration-100 cursor-default shrink-0"
+                  aria-label="fermer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             {loading && <Thinking />}
             {!loading && !task && <QuickPrompts onPick={setTask} />}
           </>
