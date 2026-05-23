@@ -1,24 +1,39 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Thought } from "./FocusFlowApp";
-import ThoughtItem from "./ThoughtItem";
 
 interface Props {
   thoughts: Thought[];
   onAdd: (text: string) => void;
+  onTransform: (thought: Thought) => void;
 }
 
-export default function CaptureDock({ thoughts, onAdd }: Props) {
+export default function CaptureDock({ thoughts, onAdd, onTransform }: Props) {
   const [val, setVal] = useState("");
+  const [open, setOpen] = useState(false);
   const sendRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Close drawer on Escape
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Close drawer when thoughts become empty
+  useEffect(() => {
+    if (thoughts.length === 0) setOpen(false);
+  }, [thoughts.length]);
 
   function fireConfetti() {
     if (!sendRef.current) return;
     const r = sendRef.current.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
-
     for (let i = 0; i < 10; i++) {
       const dot = document.createElement("div");
       dot.className = "confetti-dot";
@@ -41,6 +56,11 @@ export default function CaptureDock({ thoughts, onAdd }: Props) {
     fireConfetti();
   }
 
+  function handleTransform(thought: Thought) {
+    setOpen(false);
+    onTransform(thought);
+  }
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none px-8 pb-5 max-[720px]:px-[14px] max-[720px]:pb-[14px]"
@@ -50,26 +70,69 @@ export default function CaptureDock({ thoughts, onAdd }: Props) {
       }}
     >
       <div className="max-w-[880px] mx-auto pointer-events-auto">
-        {/* Thoughts stack — most recent at bottom, scrollable */}
-        {thoughts.length > 0 && (
-          <div
-            className="flex flex-col-reverse gap-2 max-h-[220px] overflow-y-auto mb-3 pb-1"
-            style={{
-              maskImage:
-                "linear-gradient(to bottom, transparent 0%, black 30%)",
-              WebkitMaskImage:
-                "linear-gradient(to bottom, transparent 0%, black 30%)",
-            }}
-          >
-            {thoughts.map((th) => (
-              <ThoughtItem key={th.id} thought={th} />
-            ))}
+
+        {/* Thoughts drawer panel */}
+        <div
+          ref={panelRef}
+          className="overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+          style={{
+            maxHeight: open ? 320 : 0,
+            opacity: open ? 1 : 0,
+            marginBottom: open ? 8 : 0,
+          }}
+        >
+          <div className="bg-paper-card border border-rule rounded-[18px] overflow-hidden shadow-soft">
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-rule">
+              <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-soft">
+                {thoughts.length} pensée{thoughts.length > 1 ? "s" : ""} capturée{thoughts.length > 1 ? "s" : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="font-mono text-[10px] text-ink-faint hover:text-ink transition-colors duration-100 cursor-default"
+                aria-label="fermer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Thoughts list */}
+            <div className="max-h-[240px] overflow-y-auto">
+              {thoughts.map((th) => (
+                <div
+                  key={th.id}
+                  className="flex items-start gap-3 px-4 py-3 border-b border-rule last:border-0 hover:bg-paper transition-colors duration-100 group"
+                >
+                  <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-ink-faint shrink-0 pt-0.5">
+                    {th.time}
+                  </span>
+                  <span className="font-sans text-[14px] leading-[1.45] text-ink flex-1">
+                    {th.text}
+                  </span>
+                  {th.kind && (
+                    <span className="font-mono text-[10px] text-accent-deep bg-accent-soft px-[7px] py-0.5 rounded-[4px] shrink-0 self-start">
+                      {th.kind}
+                    </span>
+                  )}
+                  {/* Transform action */}
+                  <button
+                    type="button"
+                    onClick={() => handleTransform(th)}
+                    className="shrink-0 font-mono text-[10px] text-ink-faint border border-rule rounded-full px-2.5 py-1 hover:bg-ink hover:text-paper hover:border-ink transition-all duration-100 cursor-default opacity-0 group-hover:opacity-100 whitespace-nowrap"
+                    aria-label="découper en micro-étapes"
+                  >
+                    → découper
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
+        </div>
 
         {/* Capture bar */}
         <div className="flex items-center gap-[14px] bg-ink rounded-full shadow-dock pl-[22px] pr-[6px] py-[6px] focus-within:-translate-y-[3px] focus-within:shadow-dock-hover transition-all duration-150">
-          {/* Tag */}
+          {/* Capture tag */}
           <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[rgba(242,237,227,.5)] border-r border-[rgba(242,237,227,.16)] pr-[14px] shrink-0 whitespace-nowrap max-[720px]:hidden">
             capture rapide
           </span>
@@ -88,6 +151,23 @@ export default function CaptureDock({ thoughts, onAdd }: Props) {
             placeholder="Une pensée, une idée, une distraction…"
             className="flex-1 bg-transparent text-paper text-[16px] font-sans outline-none caret-accent placeholder:font-serif placeholder:italic placeholder:text-[18px] placeholder:text-[rgba(242,237,227,.4)]"
           />
+
+          {/* Thoughts toggle — only when thoughts exist */}
+          {thoughts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-label={open ? "fermer les pensées" : "voir les pensées capturées"}
+              className={`shrink-0 flex items-center gap-1 font-mono text-[10px] rounded-full px-2.5 py-1.5 transition-all duration-150 cursor-default whitespace-nowrap max-[720px]:hidden ${
+                open
+                  ? "bg-accent text-ink"
+                  : "bg-[rgba(255,255,255,.12)] text-[rgba(242,237,227,.7)] hover:bg-[rgba(255,255,255,.2)]"
+              }`}
+            >
+              <span>{open ? "▼" : "▲"}</span>
+              <span>{thoughts.length}</span>
+            </button>
+          )}
 
           {/* Enter hint */}
           <span className="font-mono text-[10px] text-[rgba(242,237,227,.45)] shrink-0 max-[720px]:hidden">

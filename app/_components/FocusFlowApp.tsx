@@ -88,15 +88,24 @@ export default function FocusFlowApp() {
 
   const doneCount = Object.values(checked).filter(Boolean).length;
 
-  async function submit() {
-    const trimmed = task.trim();
-    if (!trimmed || loading) return;
+  async function submitTask(taskText: string) {
+    if (!taskText.trim() || loading) return;
+    setTask(taskText);
     setLoading(true);
     setSteps([]);
     setChecked({});
     await new Promise((r) => setTimeout(r, 1300));
-    setSteps(fakeBreakdown(task));
+    setSteps(fakeBreakdown(taskText));
     setLoading(false);
+  }
+
+  async function submit() {
+    await submitTask(task);
+  }
+
+  function transformThought(thought: Thought) {
+    setThoughts((prev) => prev.filter((t) => t.id !== thought.id));
+    submitTask(thought.text);
   }
 
   function addThought(text: string) {
@@ -184,7 +193,7 @@ export default function FocusFlowApp() {
         )}
       </div>
 
-      <CaptureDock thoughts={thoughts} onAdd={addThought} />
+      <CaptureDock thoughts={thoughts} onAdd={addThought} onTransform={transformThought} />
     </>
   );
 }
