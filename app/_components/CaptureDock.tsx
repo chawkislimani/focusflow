@@ -119,7 +119,7 @@ export default function CaptureDock({ thoughts, onAdd, onTransform }: Props) {
                   <button
                     type="button"
                     onClick={() => handleTransform(th)}
-                    className="shrink-0 font-mono text-[10px] text-ink-faint border border-rule rounded-full px-2.5 py-1 hover:bg-ink hover:text-paper hover:border-ink transition-all duration-100 cursor-default opacity-0 group-hover:opacity-100 whitespace-nowrap"
+                    className="shrink-0 font-mono text-[10px] text-ink-faint border border-rule rounded-full px-2.5 py-1 hover:bg-ink hover:text-paper hover:border-ink active:scale-95 transition-all duration-100 cursor-default whitespace-nowrap"
                     aria-label="découper en micro-étapes"
                   >
                     → découper
