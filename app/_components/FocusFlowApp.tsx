@@ -28,45 +28,6 @@ export type Thought = {
 
 export type AppState = "empty" | "loading" | "results";
 
-function fakeBreakdown(task: string): MicroStep[] {
-  const t = (task || "").toLowerCase();
-  if (t.includes("rapport") || t.includes("présentation") || t.includes("present")) {
-    return [
-      { t: "Ouvrir le doc et relire la dernière section écrite", m: "3 min" },
-      { t: "Lister 3 idées-clés à développer (juste des bullets)", m: "8 min" },
-      { t: "Écrire l'intro — un paragraphe brut, on corrigera après", m: "12 min" },
-      { t: "Pause café, étirements", m: "5 min", soft: true },
-      { t: "Développer la première idée-clé en 2 paragraphes", m: "15 min" },
-      { t: "Relire à voix haute, marquer les passages flous", m: "7 min" },
-    ];
-  }
-  if (t.includes("ranger") || t.includes("appartement") || t.includes("ménage")) {
-    return [
-      { t: "Mettre une playlist qui te plaît", m: "1 min" },
-      { t: "Sortir un sac poubelle, faire le tour des surfaces", m: "5 min" },
-      { t: "Tout ce qui traîne sur le canapé → à sa place", m: "8 min" },
-      { t: "Vaisselle dans l'évier seulement (pas plus)", m: "10 min" },
-      { t: "S'asseoir, regarder le résultat, te féliciter", m: "2 min", soft: true },
-    ];
-  }
-  if (t.includes("sport") || t.includes("courir") || t.includes("muscu")) {
-    return [
-      { t: "Sortir les vêtements de sport et les poser visibles", m: "2 min" },
-      { t: "Enfiler la tenue (juste ça, rien d'autre)", m: "3 min" },
-      { t: "Mettre les chaussures et sortir de chez toi", m: "2 min" },
-      { t: "Marcher 5 minutes pour s'échauffer", m: "5 min" },
-      { t: "10 minutes d'effort, peu importe l'intensité", m: "10 min" },
-    ];
-  }
-  return [
-    { t: "Identifier la toute première micro-action concrète", m: "2 min" },
-    { t: "Préparer l'environnement (fermer onglets, eau, casque)", m: "4 min" },
-    { t: "Faire la première étape — sans la juger", m: "10 min" },
-    { t: "Mini-pause, respirer", m: "3 min", soft: true },
-    { t: "Continuer 10 min ou s'arrêter, ton choix", m: "10 min" },
-  ];
-}
-
 function categorizeThought(text: string): string | null {
   const lower = text.toLowerCase();
   if (/\b(idée|peut-être|si on|et si)\b/.test(lower)) return "idée";
@@ -94,9 +55,23 @@ export default function FocusFlowApp() {
     setLoading(true);
     setSteps([]);
     setChecked({});
-    await new Promise((r) => setTimeout(r, 1300));
-    setSteps(fakeBreakdown(taskText));
-    setLoading(false);
+    try {
+      const res = await fetch("/api/breakdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task: taskText, mood }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        console.error(data.error);
+      } else {
+        setSteps(data.steps);
+      }
+    } catch (err) {
+      console.error("Impossible de contacter le serveur.", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function submit() {

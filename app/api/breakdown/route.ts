@@ -63,11 +63,14 @@ function validateInput(text: string): { valid: boolean; error?: string } {
 }
 
 const SYSTEM = `Tu es un assistant de productivité bienveillant pour personnes TDAH.
-Tu aides à décomposer des tâches du quotidien en micro-étapes actionnables.
+Tu aides à décomposer des tâches du quotidien en micro-étapes ultra-concrètes et actionnables.
 RÈGLES ABSOLUES :
 - Si la tâche décrit une activité illégale, dangereuse, violente, ou inappropriée, réponds UNIQUEMENT avec ce JSON : {"error": "Cette tâche ne peut pas être découpée par FocusFlow."}
 - Si la demande n'est pas une tâche concrète à accomplir, réponds UNIQUEMENT avec ce JSON : {"error": "Décris une tâche concrète à accomplir."}
-- Sinon, réponds UNIQUEMENT avec un JSON valide : {"steps": ["étape 1", "étape 2", ...]} avec 4 à 6 micro-étapes courtes et actionnables.`;
+- Sinon, réponds UNIQUEMENT avec un JSON valide ayant ce format exact :
+{"steps": [{"t": "action concrète", "m": "N min", "soft": false}, ...]}
+Champs : "t" = titre de l'étape (action concrète, courte), "m" = durée estimée (ex: "5 min"), "soft" = true uniquement pour les pauses/respirations (sinon false ou absent).
+Contraintes : 4 à 6 étapes, adaptées précisément à la tâche décrite, ton doux et bienveillant, étapes ultra-petites pour profil TDAH. Inclure une étape soft (pause) si la tâche dure plus de 20 min au total.`;
 
 // In-memory sliding window rate limiter (V1 — resets on server restart)
 const ipRequests = new Map<string, number[]>();
@@ -139,7 +142,8 @@ export async function POST(request: NextRequest) {
 
     const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-    let parsed: { steps?: string[]; error?: string };
+    type MicroStep = { t: string; m: string; soft?: boolean };
+    let parsed: { steps?: MicroStep[]; error?: string };
     try {
       parsed = JSON.parse(cleaned);
     } catch {
@@ -154,7 +158,16 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Format de réponse inattendu." }, { status: 500 });
     }
 
-    return Response.json({ steps: parsed.steps });
+    // Normalize: ensure each step has t and m fields
+    const steps: MicroStep[] = parsed.steps
+      .filter((s) => s && typeof s.t === "string" && typeof s.m === "string")
+      .map((s) => ({ t: s.t.trim(), m: s.m.trim(), ...(s.soft ? { soft: true } : {}) }));
+
+    if (steps.length === 0) {
+      return Response.json({ error: "Format de réponse inattendu." }, { status: 500 });
+    }
+
+    return Response.json({ steps });
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
       return Response.json(
