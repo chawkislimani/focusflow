@@ -1,15 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Instrument_Serif, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const instrumentSerif = Instrument_Serif({
+  weight: "400",
+  style: ["normal", "italic"],
   subsets: ["latin"],
+  variable: "--serif-font",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  weight: ["300", "400", "500", "600", "700"],
   subsets: ["latin"],
+  variable: "--sans-font",
+});
+
+const jetbrains = JetBrains_Mono({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--mono-font",
 });
 
 export const viewport: Viewport = {
@@ -30,10 +39,10 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="fr"
+      className={`${instrumentSerif.variable} ${inter.variable} ${jetbrains.variable} h-full`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full font-sans antialiased">{children}</body>
     </html>
   );
 }
