@@ -62,6 +62,31 @@ function validateInput(text: string): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
+const MOOD_INSTRUCTIONS: Record<string, string> = {
+  low: `L'utilisateur est en ÉNERGIE BASSE. Adapte le découpage :
+- 5 à 6 étapes très courtes (2-5 min max chacune)
+- Commence par l'action la plus petite et la moins effrayante possible
+- Inclure au moins une étape soft (pause/respiration)
+- Ton extra-doux, rassurant, sans pression : "juste ça, rien d'autre"`,
+
+  mid: `L'utilisateur est en état NORMAL. Découpage standard :
+- 4 à 5 étapes équilibrées (3-15 min)
+- Ton bienveillant et encourageant
+- Une pause si la tâche dépasse 20 min au total`,
+
+  high: `L'utilisateur est en HAUTE ÉNERGIE. Profite-en :
+- 4 à 5 étapes un peu plus ambitieuses (5-20 min)
+- Peut regrouper des sous-tâches liées en une seule étape
+- Ton dynamique et motivant, moins de main-holding
+- Pause optionnelle seulement si vraiment nécessaire`,
+
+  panic: `L'utilisateur est en MODE PANIQUE. Priorité absolue : réduire l'angoisse.
+- 3 à 4 étapes MAXIMUM, ultra-courtes (1-3 min chacune)
+- La première étape doit être ridiculement simple (ex: "Ouvrir le doc", "Sortir une feuille")
+- Ton très rassurant : "tu n'as qu'une seule chose à faire maintenant"
+- Inclure une étape soft de respiration en 2ème ou 3ème position`,
+};
+
 const SYSTEM = `Tu es un assistant de productivité bienveillant pour personnes TDAH.
 Tu aides à décomposer des tâches du quotidien en micro-étapes ultra-concrètes et actionnables.
 RÈGLES ABSOLUES :
@@ -70,7 +95,7 @@ RÈGLES ABSOLUES :
 - Sinon, réponds UNIQUEMENT avec un JSON valide ayant ce format exact :
 {"steps": [{"t": "action concrète", "m": "N min", "soft": false}, ...]}
 Champs : "t" = titre de l'étape (action concrète, courte), "m" = durée estimée (ex: "5 min"), "soft" = true uniquement pour les pauses/respirations (sinon false ou absent).
-Contraintes : 4 à 6 étapes, adaptées précisément à la tâche décrite, ton doux et bienveillant, étapes ultra-petites pour profil TDAH. Inclure une étape soft (pause) si la tâche dure plus de 20 min au total.`;
+Adapte TOUJOURS le découpage précisément à la tâche décrite — jamais de réponse générique.`;
 
 // In-memory sliding window rate limiter (V1 — resets on server restart)
 const ipRequests = new Map<string, number[]>();
@@ -100,9 +125,11 @@ export async function POST(request: NextRequest) {
   }
 
   let task: string;
+  let mood: string = "mid";
   try {
     const body = await request.json();
     task = body?.task;
+    if (["low", "mid", "high", "panic"].includes(body?.mood)) mood = body.mood;
   } catch {
     return Response.json({ error: "Corps de requête invalide." }, { status: 400 });
   }
@@ -129,7 +156,7 @@ export async function POST(request: NextRequest) {
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages: [{ role: "user", content: task }],
+      messages: [{ role: "user", content: `${MOOD_INSTRUCTIONS[mood]}\n\nTâche : ${task}` }],
     });
 
     const textBlock = message.content.find((b) => b.type === "text");
