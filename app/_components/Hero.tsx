@@ -15,10 +15,7 @@ export default function Hero({ state }: { state: AppState }) {
       </div>
 
       {/* H1 */}
-      <h1
-        className="font-serif text-ink leading-[0.92] tracking-[-0.025em] mb-5 max-[720px]:leading-[1]"
-        style={{ fontSize: "clamp(64px, 9vw, 112px)" }}
-      >
+      <h1 className="hero-heading font-serif text-ink leading-[0.92] tracking-tight mb-5 max-[720px]:leading-[1.05]">
         Quelle est ta{" "}
         <span className="italic text-accent">tâche</span>
         <span className="text-ink-faint"> ?</span>

@@ -117,6 +117,16 @@ body::after {
   mix-blend-mode: multiply;
 }
 
+/* Hero heading — responsive font size */
+.hero-heading {
+  font-size: clamp(64px, 9vw, 112px);
+}
+@media (max-width: 720px) {
+  .hero-heading {
+    font-size: clamp(48px, 13vw, 80px);
+  }
+}
+
 /* Confetti particle (created dynamically in JS) */
 .confetti-dot {
   position: fixed;

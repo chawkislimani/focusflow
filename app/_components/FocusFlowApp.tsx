@@ -164,7 +164,7 @@ export default function FocusFlowApp() {
             />
             <div className="mt-[18px] flex items-center gap-[14px] flex-wrap">
               <CTA onClick={submit} disabled={!task.trim()} loading={loading} />
-              <span className="font-serif italic text-ink-faint text-base">
+              <span className="font-serif italic text-ink-faint text-base max-[720px]:hidden">
                 ou{" "}
                 <span className="border-b border-dotted border-current">
                   ⌘ + Entrée

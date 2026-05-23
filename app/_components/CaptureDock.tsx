@@ -158,7 +158,7 @@ export default function CaptureDock({ thoughts, onAdd, onTransform }: Props) {
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-label={open ? "fermer les pensées" : "voir les pensées capturées"}
-              className={`shrink-0 flex items-center gap-1 font-mono text-[10px] rounded-full px-2.5 py-1.5 transition-all duration-150 cursor-default whitespace-nowrap max-[720px]:hidden ${
+              className={`shrink-0 flex items-center gap-1 font-mono text-[10px] rounded-full px-2.5 py-1.5 transition-all duration-150 cursor-default whitespace-nowrap ${
                 open
                   ? "bg-accent text-ink"
                   : "bg-[rgba(255,255,255,.12)] text-[rgba(242,237,227,.7)] hover:bg-[rgba(255,255,255,.2)]"
