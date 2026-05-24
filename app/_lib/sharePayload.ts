@@ -14,13 +14,21 @@ const MAX_STEP_M_LEN = 20;
 const MAX_MSG_LEN = 150;
 
 export function encodeSharePayload(payload: SharePayload): string {
-  return btoa(encodeURIComponent(JSON.stringify(payload)));
+  const json = JSON.stringify(payload);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
 export function decodeSharePayload(encoded: string): SharePayload | null {
-  if (!encoded || encoded.length > 8000) return null;
+  if (!encoded || encoded.length > 4000) return null;
   try {
-    const json = decodeURIComponent(atob(encoded));
+    const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const json = new TextDecoder().decode(bytes);
     const parsed: unknown = JSON.parse(json);
     return validateSharePayload(parsed);
   } catch {
