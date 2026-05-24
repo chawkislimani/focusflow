@@ -32,7 +32,7 @@ export default function SharePanel({ task, steps }: Props) {
       return;
     }
     const encoded = encodeSharePayload({ v: 1, task, steps, message: trimmed });
-    setLink(`${window.location.origin}/partage?d=${encoded}`);
+    setLink(`${window.location.origin}/partage#${encoded}`);
     setError(null);
   }
 

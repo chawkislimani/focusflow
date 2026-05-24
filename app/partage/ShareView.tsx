@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { decodeSharePayload } from "../_lib/sharePayload";
 import ProgressStrip from "../_components/ProgressStrip";
-
-interface Props {
-  encodedData: string | null;
-}
 
 interface SharedStep {
   t: string;
@@ -14,14 +10,24 @@ interface SharedStep {
   soft?: boolean;
 }
 
-export default function ShareView({ encodedData }: Props) {
-  const payload = encodedData ? decodeSharePayload(encodedData) : null;
-
-  const [steps, setSteps] = useState<SharedStep[]>(payload?.steps ?? []);
+export default function ShareView() {
+  const [ready, setReady] = useState(false);
+  const [steps, setSteps] = useState<SharedStep[]>([]);
+  const [payload, setPayload] = useState<ReturnType<typeof decodeSharePayload>>(null);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [reported, setReported] = useState(false);
+
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    const decoded = hash ? decodeSharePayload(hash) : null;
+    setPayload(decoded);
+    setSteps(decoded?.steps ?? []);
+    setReady(true);
+  }, []);
+
+  if (!ready) return null;
 
   if (!payload) {
     return (
