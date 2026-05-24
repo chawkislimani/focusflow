@@ -12,6 +12,7 @@ import TaskRecap from "./TaskRecap";
 import StepList from "./StepList";
 import ProgressStrip from "./ProgressStrip";
 import CaptureDock from "./CaptureDock";
+import SharePanel from "./SharePanel";
 
 export type MicroStep = {
   t: string;
@@ -223,6 +224,7 @@ export default function FocusFlowApp() {
               onResplit={resplit}
             />
             <ProgressStrip done={doneCount} total={steps.length} />
+            <SharePanel task={task} steps={steps} />
           </>
         )}
       </div>
