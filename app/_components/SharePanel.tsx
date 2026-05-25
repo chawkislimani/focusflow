@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { MicroStep } from "./FocusFlowApp";
 import { validateMessage } from "../_lib/contentFilter";
-import { encodeSharePayload } from "../_lib/sharePayload";
 
 interface Props {
   task: string;
@@ -16,6 +15,7 @@ export default function SharePanel({ task, steps }: Props) {
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   function close() {
     setOpen(false);
@@ -24,16 +24,33 @@ export default function SharePanel({ task, steps }: Props) {
     setError(null);
   }
 
-  function generate() {
+  async function generate() {
     const trimmed = message.trim();
     const validation = validateMessage(trimmed);
     if (!validation.valid) {
       setError(validation.error ?? "Message invalide.");
       return;
     }
-    const encoded = encodeSharePayload({ v: 1, task, steps, message: trimmed });
-    setLink(`${window.location.origin}/partage#${encoded}`);
+
+    setGenerating(true);
     setError(null);
+    try {
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task, steps, message: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error ?? "Impossible de générer le lien.");
+      } else {
+        setLink(`${window.location.origin}/partage/${data.id}`);
+      }
+    } catch {
+      setError("Impossible de contacter le serveur.");
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function copy() {
@@ -43,7 +60,7 @@ export default function SharePanel({ task, steps }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     } catch {
-      // clipboard unavailable — do nothing
+      // clipboard unavailable
     }
   }
 
@@ -80,7 +97,6 @@ export default function SharePanel({ task, steps }: Props) {
 
       {!link ? (
         <>
-          {/* Message textarea */}
           <label className="block font-sans text-[13px] text-ink-soft mb-2">
             Ajouter un mot{" "}
             <span className="text-ink-faint">(facultatif, 150 car. max)</span>
@@ -108,9 +124,10 @@ export default function SharePanel({ task, steps }: Props) {
           <button
             type="button"
             onClick={generate}
-            className="w-full bg-ink text-paper-card rounded-[10px] py-[11px] font-sans font-medium text-[14px] hover:bg-ink-2 transition-colors duration-150 cursor-default"
+            disabled={generating}
+            className="w-full bg-ink text-paper-card rounded-[10px] py-[11px] font-sans font-medium text-[14px] hover:bg-ink-2 transition-colors duration-150 cursor-default disabled:opacity-60"
           >
-            Générer le lien de partage
+            {generating ? "Génération…" : "Générer le lien de partage"}
           </button>
         </>
       ) : (
@@ -119,9 +136,8 @@ export default function SharePanel({ task, steps }: Props) {
             Lien prêt — partage-le comme tu veux :
           </p>
 
-          {/* Link display + copy */}
           <div className="flex gap-2 items-stretch">
-            <div className="flex-1 min-w-0 font-mono text-[11px] text-ink-soft bg-paper border border-rule rounded-[10px] px-3 py-2 overflow-hidden text-ellipsis whitespace-nowrap">
+            <div className="flex-1 min-w-0 font-mono text-[13px] text-ink-soft bg-paper border border-rule rounded-[10px] px-3 py-2 overflow-hidden text-ellipsis whitespace-nowrap">
               {link}
             </div>
             <button

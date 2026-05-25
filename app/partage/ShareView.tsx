@@ -10,22 +10,34 @@ interface SharedStep {
   soft?: boolean;
 }
 
-export default function ShareView() {
-  const [ready, setReady] = useState(false);
-  const [steps, setSteps] = useState<SharedStep[]>([]);
-  const [payload, setPayload] = useState<ReturnType<typeof decodeSharePayload>>(null);
+interface PreloadedPayload {
+  task: string;
+  steps: SharedStep[];
+  message: string;
+}
+
+interface Props {
+  preloadedPayload?: PreloadedPayload;
+}
+
+export default function ShareView({ preloadedPayload }: Props = {}) {
+  const [ready, setReady] = useState(!!preloadedPayload);
+  const [steps, setSteps] = useState<SharedStep[]>(preloadedPayload?.steps ?? []);
+  const [payload, setPayload] = useState<PreloadedPayload | null>(preloadedPayload ?? null);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [reported, setReported] = useState(false);
 
   useEffect(() => {
+    if (preloadedPayload) return;
+    // fallback: read from URL hash (old links)
     const hash = window.location.hash.slice(1);
     const decoded = hash ? decodeSharePayload(hash) : null;
-    setPayload(decoded);
+    setPayload(decoded ? { task: decoded.task, steps: decoded.steps, message: decoded.message } : null);
     setSteps(decoded?.steps ?? []);
     setReady(true);
-  }, []);
+  }, [preloadedPayload]);
 
   if (!ready) return null;
 
