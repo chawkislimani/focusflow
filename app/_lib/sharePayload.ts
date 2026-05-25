@@ -13,22 +13,41 @@ const MAX_STEP_T_LEN = 120;
 const MAX_STEP_M_LEN = 20;
 const MAX_MSG_LEN = 150;
 
-export function encodeSharePayload(payload: SharePayload): string {
-  const json = JSON.stringify(payload);
-  const bytes = new TextEncoder().encode(json);
+function toUrlBase64(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
-export function decodeSharePayload(encoded: string): SharePayload | null {
-  if (!encoded || encoded.length > 4000) return null;
+function fromUrlBase64(encoded: string): Uint8Array<ArrayBuffer> {
+  const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+export async function encodeSharePayload(payload: SharePayload): Promise<string> {
+  const json = JSON.stringify(payload);
+  const input = new TextEncoder().encode(json);
+  const cs = new CompressionStream("deflate-raw");
+  const writer = cs.writable.getWriter();
+  await writer.write(input);
+  await writer.close();
+  const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+  return toUrlBase64(compressed);
+}
+
+export async function decodeSharePayload(encoded: string): Promise<SharePayload | null> {
+  if (!encoded || encoded.length > 2000) return null;
   try {
-    const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const json = new TextDecoder().decode(bytes);
+    const bytes = fromUrlBase64(encoded);
+    const ds = new DecompressionStream("deflate-raw");
+    const writer = ds.writable.getWriter();
+    await writer.write(bytes);
+    await writer.close();
+    const decompressed = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+    const json = new TextDecoder().decode(decompressed);
     const parsed: unknown = JSON.parse(json);
     return validateSharePayload(parsed);
   } catch {

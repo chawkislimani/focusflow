@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { MicroStep } from "./FocusFlowApp";
 import { validateMessage } from "../_lib/contentFilter";
+import { encodeSharePayload } from "../_lib/sharePayload";
 
 interface Props {
   task: string;
@@ -31,23 +32,13 @@ export default function SharePanel({ task, steps }: Props) {
       setError(validation.error ?? "Message invalide.");
       return;
     }
-
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch("/api/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, steps, message: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error ?? "Impossible de générer le lien.");
-      } else {
-        setLink(`${window.location.origin}/partage/${data.id}`);
-      }
+      const encoded = await encodeSharePayload({ v: 1, task, steps, message: trimmed });
+      setLink(`${window.location.origin}/partage#${encoded}`);
     } catch {
-      setError("Impossible de contacter le serveur.");
+      setError("Impossible de générer le lien.");
     } finally {
       setGenerating(false);
     }
@@ -80,7 +71,6 @@ export default function SharePanel({ task, steps }: Props) {
 
   return (
     <div className="mt-6 bg-paper-card border border-rule rounded-[18px] p-5 animate-fade-slide">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-soft">
           Envoyer un coup de pouce
@@ -135,7 +125,6 @@ export default function SharePanel({ task, steps }: Props) {
           <p className="font-sans text-[13px] text-ink-soft">
             Lien prêt — partage-le comme tu veux :
           </p>
-
           <div className="flex gap-2 items-stretch">
             <div className="flex-1 min-w-0 font-mono text-[13px] text-ink-soft bg-paper border border-rule rounded-[10px] px-3 py-2 overflow-hidden text-ellipsis whitespace-nowrap">
               {link}
@@ -152,7 +141,6 @@ export default function SharePanel({ task, steps }: Props) {
               {copied ? "Copié ✓" : "Copier"}
             </button>
           </div>
-
           <p className="font-mono text-[11px] text-ink-faint">
             Ce lien n&apos;expire pas.
           </p>

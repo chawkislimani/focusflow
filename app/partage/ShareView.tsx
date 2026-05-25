@@ -10,34 +10,33 @@ interface SharedStep {
   soft?: boolean;
 }
 
-interface PreloadedPayload {
+interface Payload {
   task: string;
   steps: SharedStep[];
   message: string;
 }
 
-interface Props {
-  preloadedPayload?: PreloadedPayload;
-}
-
-export default function ShareView({ preloadedPayload }: Props = {}) {
-  const [ready, setReady] = useState(!!preloadedPayload);
-  const [steps, setSteps] = useState<SharedStep[]>(preloadedPayload?.steps ?? []);
-  const [payload, setPayload] = useState<PreloadedPayload | null>(preloadedPayload ?? null);
+export default function ShareView() {
+  const [ready, setReady] = useState(false);
+  const [payload, setPayload] = useState<Payload | null>(null);
+  const [steps, setSteps] = useState<SharedStep[]>([]);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [reported, setReported] = useState(false);
 
   useEffect(() => {
-    if (preloadedPayload) return;
-    // fallback: read from URL hash (old links)
     const hash = window.location.hash.slice(1);
-    const decoded = hash ? decodeSharePayload(hash) : null;
-    setPayload(decoded ? { task: decoded.task, steps: decoded.steps, message: decoded.message } : null);
-    setSteps(decoded?.steps ?? []);
-    setReady(true);
-  }, [preloadedPayload]);
+    if (!hash) {
+      setReady(true);
+      return;
+    }
+    decodeSharePayload(hash).then((decoded) => {
+      setPayload(decoded);
+      setSteps(decoded?.steps ?? []);
+      setReady(true);
+    });
+  }, []);
 
   if (!ready) return null;
 
@@ -47,9 +46,7 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-soft mb-4">
           FocusFlow
         </p>
-        <h1 className="font-serif text-[32px] text-ink mb-3">
-          Lien invalide
-        </h1>
+        <h1 className="font-serif text-[32px] text-ink mb-3">Lien invalide</h1>
         <p className="font-sans text-[15px] text-ink-soft max-w-xs">
           Ce lien est malformé ou a été modifié. Demande à l&apos;expéditeur de
           t&apos;en envoyer un nouveau.
@@ -106,7 +103,6 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
 
   return (
     <div className="relative z-10 max-w-[640px] mx-auto px-6 pt-8 pb-24 max-[720px]:px-4 max-[720px]:pt-6">
-      {/* Brand */}
       <a
         href="/"
         className="block font-mono text-[11px] uppercase tracking-[0.18em] text-ink-faint mb-8 hover:text-ink-soft transition-colors duration-100"
@@ -114,12 +110,10 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
         FocusFlow
       </a>
 
-      {/* Header */}
       <p className="font-sans text-[13px] text-ink-soft mb-6">
         Quelqu&apos;un t&apos;a envoyé un coup de pouce via FocusFlow
       </p>
 
-      {/* Support message */}
       {payload.message && (
         <div
           className="rounded-[16px] px-5 py-4 mb-6 border"
@@ -134,7 +128,6 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
         </div>
       )}
 
-      {/* Task title */}
       <div className="bg-paper-card border border-rule rounded-[22px] px-[22px] py-4 shadow-soft mb-6">
         <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-soft mb-1.5">
           la tâche
@@ -144,7 +137,6 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
         </div>
       </div>
 
-      {/* Steps */}
       {steps.length > 0 && (
         <div>
           <div className="flex items-baseline justify-between mb-[18px]">
@@ -168,7 +160,6 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
                   animationDelay: `${i * 70}ms`,
                 }}
               >
-                {/* Step number */}
                 <div
                   className={`w-10 h-10 grid place-items-center border-r border-rule font-serif italic text-[28px] leading-none transition-colors duration-150 max-[720px]:w-9 max-[720px]:h-9 max-[720px]:text-[22px] ${
                     checked[i] ? "text-ink-faint" : "text-ink-soft"
@@ -177,7 +168,6 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
                   {String(i + 1).padStart(2, "0")}
                 </div>
 
-                {/* Body */}
                 <div className="min-w-0">
                   {editingIndex === i ? (
                     <input
@@ -209,77 +199,33 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
                     <span className="text-accent">◷</span>
                     <span>{s.m}</span>
                     {s.soft && (
-                      <span className="font-serif italic text-ink-faint">
-                        respire
-                      </span>
+                      <span className="font-serif italic text-ink-faint">respire</span>
                     )}
                   </div>
                 </div>
 
-                {/* Delete */}
                 <button
                   type="button"
                   onClick={() => deleteStep(i)}
                   aria-label="supprimer cette étape"
                   className="w-6 h-6 grid place-items-center text-ink-faint hover:text-accent transition-colors duration-100 cursor-default shrink-0"
                 >
-                  <span
-                    style={{
-                      display: "block",
-                      width: 10,
-                      height: 10,
-                      position: "relative",
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        display: "block",
-                        width: 10,
-                        height: 1.5,
-                        background: "currentColor",
-                        top: "50%",
-                        transform: "translateY(-50%) rotate(45deg)",
-                      }}
-                    />
-                    <span
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        display: "block",
-                        width: 10,
-                        height: 1.5,
-                        background: "currentColor",
-                        top: "50%",
-                        transform: "translateY(-50%) rotate(-45deg)",
-                      }}
-                    />
+                  <span style={{ display: "block", width: 10, height: 10, position: "relative" }}>
+                    <span style={{ position: "absolute", inset: 0, display: "block", width: 10, height: 1.5, background: "currentColor", top: "50%", transform: "translateY(-50%) rotate(45deg)" }} />
+                    <span style={{ position: "absolute", inset: 0, display: "block", width: 10, height: 1.5, background: "currentColor", top: "50%", transform: "translateY(-50%) rotate(-45deg)" }} />
                   </span>
                 </button>
 
-                {/* Checkbox */}
                 <button
                   type="button"
                   onClick={() => toggleCheck(i)}
                   aria-label={checked[i] ? "marquer non-terminé" : "terminer"}
                   className={`w-7 h-7 rounded-full border-[1.5px] flex items-center justify-center transition-all duration-150 shrink-0 cursor-default ${
-                    checked[i]
-                      ? "bg-accent border-accent"
-                      : "border-rule hover:border-ink-soft"
+                    checked[i] ? "bg-accent border-accent" : "border-rule hover:border-ink-soft"
                   }`}
                 >
                   {checked[i] && (
-                    <span
-                      style={{
-                        display: "block",
-                        width: 5,
-                        height: 9,
-                        borderRight: "2px solid white",
-                        borderBottom: "2px solid white",
-                        transform: "rotate(45deg) translate(-1px, -1px)",
-                      }}
-                    />
+                    <span style={{ display: "block", width: 5, height: 9, borderRight: "2px solid white", borderBottom: "2px solid white", transform: "rotate(45deg) translate(-1px, -1px)" }} />
                   )}
                 </button>
               </div>
@@ -296,11 +242,8 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
         </p>
       )}
 
-      {/* Footer */}
       <div className="mt-12 flex flex-col items-center gap-3">
-        <p className="font-mono text-[11px] text-ink-faint">
-          Ce lien n&apos;expire pas.
-        </p>
+        <p className="font-mono text-[11px] text-ink-faint">Ce lien n&apos;expire pas.</p>
         <a
           href="/"
           className="font-sans text-[13px] text-ink-soft border border-dashed border-rule rounded-full px-4 py-2 hover:border-ink-soft hover:text-ink transition-colors duration-100"
@@ -309,9 +252,7 @@ export default function ShareView({ preloadedPayload }: Props = {}) {
         </a>
         <div className="mt-4">
           {reported ? (
-            <p className="font-mono text-[11px] text-ink-faint">
-              Signalement envoyé, merci.
-            </p>
+            <p className="font-mono text-[11px] text-ink-faint">Signalement envoyé, merci.</p>
           ) : (
             <a
               href={reportHref}
