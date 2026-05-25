@@ -30,11 +30,8 @@ function fromUrlBase64(encoded: string): Uint8Array<ArrayBuffer> {
 export async function encodeSharePayload(payload: SharePayload): Promise<string> {
   const json = JSON.stringify(payload);
   const input = new TextEncoder().encode(json);
-  const cs = new CompressionStream("deflate-raw");
-  const writer = cs.writable.getWriter();
-  await writer.write(input);
-  await writer.close();
-  const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+  const stream = new Blob([input]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
   return toUrlBase64(compressed);
 }
 
@@ -42,11 +39,8 @@ export async function decodeSharePayload(encoded: string): Promise<SharePayload 
   if (!encoded || encoded.length > 2000) return null;
   try {
     const bytes = fromUrlBase64(encoded);
-    const ds = new DecompressionStream("deflate-raw");
-    const writer = ds.writable.getWriter();
-    await writer.write(bytes);
-    await writer.close();
-    const decompressed = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    const decompressed = new Uint8Array(await new Response(stream).arrayBuffer());
     const json = new TextDecoder().decode(decompressed);
     const parsed: unknown = JSON.parse(json);
     return validateSharePayload(parsed);
